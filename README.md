@@ -1,1 +1,1 @@
-Basic console based chat application using C++
+Simple console based chat application using C++

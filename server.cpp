@@ -4,23 +4,27 @@
 #include <sys/socket.h>
 #include <cstring>
 #include <pthread.h>
+#include <thread>
+#include <mutex>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-int acceptedSockets[10];
+std::vector<int> acceptedSockets;
 int acceptedClientSockets = 0;
-
 
 constexpr int BUFFER_SIZE = 1024;
 constexpr int MAX_CLIENTS = 10;
 
 
-void broadcastMessageToClients(int clientSocketFD, std::vector<char> &buffer)
+std::mutex handleClientsMutex;
+
+void broadcastMessageToClients(int* clientSocketFD, std::vector<char> &buffer)
 {
+    std::lock_guard<std::mutex> lock (handleClientsMutex);
     for(int i = 0; i < acceptedClientSockets; i++)
     {
-        if(acceptedSockets[i] != clientSocketFD)
+        if(acceptedSockets[i] != *clientSocketFD)
         {
             send(acceptedSockets[i], buffer.data(), buffer.size(), 0);
         }
@@ -30,27 +34,41 @@ void broadcastMessageToClients(int clientSocketFD, std::vector<char> &buffer)
 void* receiveIncomingData(void * socketData)
 {
     std::vector<char> buffer(BUFFER_SIZE);
-    int clientSocketFD;
-    clientSocketFD = *(int *) socketData;
-    std::function<void(int, std::vector<char>&)> onReceiveMessage = &broadcastMessageToClients;
+    int* clientSocketFD;
+    clientSocketFD = (int *) socketData;
+    std::function<void(int *, std::vector<char>&)> onReceiveMessage = &broadcastMessageToClients;
     while(1)
-    {       
-        size_t message_len = recv(clientSocketFD, &buffer[0], buffer.size(), 0);
+    {
+	size_t message_len = recv(*clientSocketFD, &buffer[0], buffer.size(), 0);
+	if(message_len == 0)
+	{
+	    std::cout << "Client has been disconnected.\n";
+	    break;
+	}
 	if(message_len > 0)
 	{
-            std::cout << buffer.data() << std::endl;
+            std::string msg = std::string(buffer.data(), message_len);
+            std::cout << msg << "\n";
 
             onReceiveMessage(clientSocketFD, buffer);
 	}
 	if(message_len < 0)
 	{
+	    std::cout << "Error, client has been disconnected.\n";
             break;
 	}
 	buffer.clear();
 	buffer.resize(1024);
     }
+    std::cout << "Client connection has been closed.\n";
 
-    close(clientSocketFD);
+    {
+        std::lock_guard<std::mutex> lock(handleClientsMutex);
+        acceptedSockets.erase(std::remove(acceptedSockets.begin(), acceptedSockets.end(), *clientSocketFD), acceptedSockets.end());
+    }
+
+    close(*clientSocketFD);
+    delete clientSocketFD;
 
     return nullptr;
 }
@@ -76,20 +94,26 @@ int main()
     }
 
     std::cout << "Server socket was established successfully." << std::endl;
+    std::jthread clientThread;
 
     while(1)
     {
         struct sockaddr_in clientAddress;
         int clientAddressSize = sizeof(struct sockaddr_in);
-        int clientSocketFD = accept(socketFD, (struct sockaddr *) &clientAddress, (socklen_t*)&clientAddressSize);
-        if(clientSocketFD > 0)
+	int* clientSocketFD = new int;
+        *clientSocketFD = accept(socketFD, (struct sockaddr *) &clientAddress, (socklen_t*)&clientAddressSize);
+        if(*clientSocketFD > 0)
         {
             std::cout << "Client connection was successful, client socked id: " << clientSocketFD << std::endl;
-            acceptedSockets[acceptedClientSockets] = clientSocketFD;
-            acceptedClientSockets++;
+
+	    {
+	        std::lock_guard<std::mutex> lock(handleClientsMutex);
+	        acceptedSockets.emplace_back(*clientSocketFD);
+                acceptedClientSockets++;
+	    }
 
             pthread_t id;
-            pthread_create(&id, nullptr, &receiveIncomingData, &clientSocketFD);
+            pthread_create(&id, nullptr, &receiveIncomingData, clientSocketFD);
         }
     }
 

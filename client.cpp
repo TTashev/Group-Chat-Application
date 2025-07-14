@@ -63,5 +63,7 @@ int main()
         send(socketFD, line.c_str(), line.size(), 0);
     }
 
+    close(socketFD);
+
     return 0;
 }

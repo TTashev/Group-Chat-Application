@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <functional>
+#include <algorithm>
 #include <sys/socket.h>
 #include <cstring>
 #include <pthread.h>
@@ -11,7 +12,6 @@
 #include <arpa/inet.h>
 
 std::vector<int> acceptedSockets;
-int acceptedClientSockets = 0;
 
 constexpr int BUFFER_SIZE = 1024;
 constexpr int MAX_CLIENTS = 10;
@@ -22,11 +22,11 @@ std::mutex handleClientsMutex;
 void broadcastMessageToClients(int* clientSocketFD, std::vector<char> &buffer)
 {
     std::lock_guard<std::mutex> lock (handleClientsMutex);
-    for(int i = 0; i < acceptedClientSockets; i++)
+    for (const int socket : acceptedSockets)
     {
-        if(acceptedSockets[i] != *clientSocketFD)
+        if (socket != *clientSocketFD)
         {
-            send(acceptedSockets[i], buffer.data(), buffer.size(), 0);
+            send(socket, buffer.data(), buffer.size(), 0);
         }
     }
 }
@@ -106,11 +106,10 @@ int main()
         {
             std::cout << "Client connection was successful, client socked id: " << clientSocketFD << std::endl;
 
-	    {
-	        std::lock_guard<std::mutex> lock(handleClientsMutex);
-	        acceptedSockets.emplace_back(*clientSocketFD);
-                acceptedClientSockets++;
-	    }
+            {
+                std::lock_guard<std::mutex> lock(handleClientsMutex);
+                acceptedSockets.emplace_back(*clientSocketFD);
+            }
 
             pthread_t id;
             pthread_create(&id, nullptr, &receiveIncomingData, clientSocketFD);

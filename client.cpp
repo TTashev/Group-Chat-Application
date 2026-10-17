@@ -12,10 +12,15 @@ void* receiveIncomingData(void * socketData)
     clientSocketFD = *(int *) socketData;
     while(1)
     {   
-        size_t message_len = recv(clientSocketFD, &buffer[0], buffer.size(), 0);
+    ssize_t message_len = recv(clientSocketFD, buffer.data(), buffer.size(), 0);
 	if(message_len > 0)
 	{
-            std::cout << buffer.data() << std::endl;
+        std::cout.write(buffer.data(), message_len);
+        std::cout << std::endl;
+    }
+    else
+    {
+        break;
 	}
 	buffer.clear();
 	buffer.resize(1024);

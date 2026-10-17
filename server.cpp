@@ -39,7 +39,7 @@ void* receiveIncomingData(void * socketData)
     std::function<void(int *, std::vector<char>&)> onReceiveMessage = &broadcastMessageToClients;
     while(1)
     {
-	size_t message_len = recv(*clientSocketFD, &buffer[0], buffer.size(), 0);
+    ssize_t message_len = recv(*clientSocketFD, buffer.data(), buffer.size(), 0);
 	if(message_len == 0)
 	{
 	    std::cout << "Client has been disconnected.\n";
@@ -47,7 +47,7 @@ void* receiveIncomingData(void * socketData)
 	}
 	if(message_len > 0)
 	{
-            std::string msg = std::string(buffer.data(), message_len);
+            std::string msg = std::string(buffer.data(), static_cast<std::size_t>(message_len));
             std::cout << msg << "\n";
 
             onReceiveMessage(clientSocketFD, buffer);
@@ -94,13 +94,11 @@ int main()
     }
 
     std::cout << "Server socket was established successfully." << std::endl;
-    std::jthread clientThread;
-
     while(1)
     {
         struct sockaddr_in clientAddress;
         int clientAddressSize = sizeof(struct sockaddr_in);
-	int* clientSocketFD = new int;
+	    int* clientSocketFD = new int;
         *clientSocketFD = accept(socketFD, (struct sockaddr *) &clientAddress, (socklen_t*)&clientAddressSize);
         if(*clientSocketFD > 0)
         {

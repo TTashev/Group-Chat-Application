@@ -11,3 +11,7 @@ make
 ./server
 
 ./client
+
+## Tests
+
+make test

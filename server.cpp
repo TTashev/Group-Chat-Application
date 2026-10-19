@@ -50,6 +50,7 @@ void* receiveIncomingData(void * socketData)
             std::string msg = std::string(buffer.data(), static_cast<std::size_t>(message_len));
             std::cout << msg << "\n";
 
+            buffer.resize(static_cast<std::size_t>(message_len));
             onReceiveMessage(clientSocketFD, buffer);
 	}
 	if(message_len < 0)

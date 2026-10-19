@@ -10,7 +10,10 @@ server: server.cpp
 client: client.cpp
 	$(CC) $(CFLAGS) -o client $^ $(LDFLAGS)
 
+test: server
+	python3 -m unittest discover -s tests -v
+
 clean:
 	rm -f server client
 
-.PHONY: all clean
+.PHONY: all clean test

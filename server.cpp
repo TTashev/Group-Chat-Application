@@ -39,27 +39,27 @@ void* receiveIncomingData(void * socketData)
     std::function<void(int *, std::vector<char>&)> onReceiveMessage = &broadcastMessageToClients;
     while(1)
     {
-    ssize_t message_len = recv(*clientSocketFD, buffer.data(), buffer.size(), 0);
-	if(message_len == 0)
-	{
-	    std::cout << "Client has been disconnected.\n";
-	    break;
-	}
-	if(message_len > 0)
-	{
+        ssize_t message_len = recv(*clientSocketFD, buffer.data(), buffer.size(), 0);
+        if(message_len == 0)
+        {
+            std::cout << "Client has been disconnected.\n";
+            break;
+        }
+        if(message_len > 0)
+        {
             std::string msg = std::string(buffer.data(), static_cast<std::size_t>(message_len));
             std::cout << msg << "\n";
 
             buffer.resize(static_cast<std::size_t>(message_len));
             onReceiveMessage(clientSocketFD, buffer);
-	}
-	if(message_len < 0)
-	{
-	    std::cout << "Error, client has been disconnected.\n";
+        }
+        if(message_len < 0)
+        {
+            std::cout << "Error, client has been disconnected.\n";
             break;
-	}
-	buffer.clear();
-	buffer.resize(1024);
+        }
+        buffer.clear();
+        buffer.resize(1024);
     }
     std::cout << "Client connection has been closed.\n";
 
